@@ -1,0 +1,9 @@
+name: Security Audit Pipeline
+on: [push]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Pipeline OK - J1
+        run: echo "Pipeline basique fonctionnel"
