@@ -1,9 +1,55 @@
 name: Security Audit Pipeline
 on: [push]
+
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Pipeline OK - J1
-        run: echo "Pipeline basique fonctionnel"
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # ─── 1. GITLEAKS — Détection de secrets ───
+      - name: GitLeaks - Scan secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      # ─── 2. SEMGREP — Analyse statique SAST ───
+      - name: Semgrep - SAST scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >
+            p/python
+            p/flask
+            p/owasp-top-ten
+        continue-on-error: true
+
+      # ─── 3. TRIVY — Scan conteneur & filesystem ───
+      - name: Trivy - Scan filesystem
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: json
+          output: reports/trivy.json
+        continue-on-error: true
+
+      # ─── 4. OWASP Dependency Check — SCA ───
+      - name: OWASP DepCheck - Scan dépendances
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: vulpy
+          path: .
+          format: JSON
+          out: reports/depcheck.json
+        continue-on-error: true
+
+      # ─── Sauvegarde des rapports ───
+      - name: Upload reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: reports/
